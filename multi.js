@@ -34,7 +34,29 @@
   };
 
   function sendTo(conn, obj) { if (conn && conn.send) { try { conn.send(JSON.stringify(obj)); } catch (e) {} } }
-  function randCode() { const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s = ''; for (let i = 0; i < 4; i++) s += c[Math.floor(Math.random() * c.length)]; return s; }
+  // Lowercase only: PeerJS ids are case-sensitive, so we pin one case and
+  // normalise whatever the guest types (with or without the "thp-" prefix).
+  function randCode() { const c = 'abcdefghjkmnpqrstuvwxyz23456789'; let s = ''; for (let i = 0; i < 4; i++) s += c[Math.floor(Math.random() * c.length)]; return s; }
+  function normRoomCode(raw) {
+    let c = String(raw == null ? '' : raw).trim().toLowerCase().replace(/\s+/g, '');
+    if (!c) return '';
+    if (c.indexOf('thp-') !== 0) c = 'thp-' + c.replace(/^thp/, '');
+    return c;
+  }
+
+  // WebRTC ICE servers. PeerJS only ships Google's STUN by default, which is
+  // unreachable from mainland China -> peers never gather a public candidate
+  // -> the data channel never opens (both sides just sit at "waiting").
+  // Domestic STUN fixes the common case; the TURN relay covers strict NAT.
+  const ICE_SERVERS = [
+    { urls: 'stun:stun.qq.com:3478' },
+    { urls: 'stun:stun.miwifi.com:3478' },
+    { urls: 'stun:stun.chat.bilibili.com:3478' },
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+  ];
 
   // Optional custom signaling server via URL params, e.g.
   //   index.html?peerhost=my.server.com&peerport=443&peerpath=/&peersecure=1
@@ -59,9 +81,9 @@
   }
   function makePeer(id) {
     try {
-      const o = peerOpts();
-      if (o) return id ? new Peer(id, o) : new Peer(null, o);
-      return id ? new Peer(id) : new Peer();
+      const o = peerOpts() || {};
+      if (!o.config) o.config = { iceServers: ICE_SERVERS };
+      return id ? new Peer(id, o) : new Peer(null, o);
     } catch (e) { return null; }
   }
   // Warn if the signaling server never answers, so failures aren't mysterious.
@@ -412,36 +434,58 @@
     }
   }
 
-  function joinRoom(code) {
+  function joinRoom(codeRaw) {
+    const code = normRoomCode(codeRaw);
     if (!code) return;
     if (typeof Peer === 'undefined') { $('multi-hint').textContent = '联机库（PeerJS）未加载，请检查网络后刷新页面。'; return; }
     M.mode = 'guest';
     M.peer = makePeer(null);
     if (!M.peer) { $('multi-hint').textContent = '联机库加载失败，请强制刷新（Ctrl+F5）后重试。'; return; }
     const clearWatch = armConnectWatchdog('加入房间');
+    $('multi-hint').textContent = '正在连接房间…';
     M.peer.on('open', () => {
       clearWatch();
-      const conn = M.peer.connect(code);
+      const conn = M.peer.connect(code, { reliable: true });
       M.conn = conn;
-      conn.on('open', () => sendTo(conn, { type: 'join', name: '玩家' }));
-      conn.on('data', guestOnData);
-      conn.on('close', () => { if (!M.over) statusEl.textContent = '与房主断开连接'; });
-      lobbyTitle.textContent = '已连接 · 等待房主开始';
+      // IMPORTANT: do NOT claim success here. Only conn 'open' means the
+      // peer-to-peer data channel is actually up.
+      lobbyTitle.textContent = '正在连接房主…';
       lobbyCode.textContent = '房间：' + code;
       lobbyStart.classList.add('hidden');
       lobby.classList.remove('hidden');
+      let opened = false;
+      const iceTimer = setTimeout(() => {
+        if (opened) return;
+        lobbyTitle.textContent = '连不上房主';
+        $('multi-hint').textContent = '信令已通，但双方之间的直连没建起来（NAT / 防火墙限制）。'
+          + '试试：① 两边连同一个 Wi-Fi 或都用手机热点；② 关掉加速器 / 代理；③ 换浏览器。';
+      }, 15000);
+      conn.on('open', () => {
+        opened = true;
+        clearTimeout(iceTimer);
+        sendTo(conn, { type: 'join', name: '玩家' });
+        lobbyTitle.textContent = '已连接房主 · 等待开始';
+        $('multi-hint').textContent = '房主点「开始游戏」后即可入座。';
+      });
+      conn.on('data', guestOnData);
+      conn.on('error', () => {
+        if (opened) return;
+        clearTimeout(iceTimer);
+        lobbyTitle.textContent = '连不上房主';
+        $('multi-hint').textContent = '直连失败：确认房间码是 ' + code + '、房主还在房间里，然后换网络重试。';
+      });
+      conn.on('close', () => { if (!M.over) statusEl.textContent = '与房主断开连接'; });
     });
     M.peer.on('error', (e) => {
       const t = (e && e.type) ? e.type : '';
       if (t === 'peer-unavailable') {
-        $('multi-hint').textContent = '加入失败：房间码不对，或房主还没建房成功 / 已离开。';
+        $('multi-hint').textContent = '加入失败：房间码不对（你输入的是 ' + code + '），或房主还没建房成功 / 已离开。';
       } else if (t === 'network' || t === 'server-error' || t === 'socket-error' || t === 'socket-closed') {
         $('multi-hint').textContent = '加入失败：连不上信令服务器（网络问题），换网络或关掉加速器再试。';
       } else {
         $('multi-hint').textContent = '加入失败：' + ((e && e.message) ? e.message : (t || '未知错误'));
       }
     });
-    $('multi-hint').textContent = '正在连接房间…';
   }
 
   // ---- wiring ----
@@ -450,6 +494,22 @@
     const act = seg ? seg.querySelector('.active') : null;
     return act ? act.dataset.val : null;
   }
+  // Room-size selector (2/3/4 人桌). Without this wiring the selection never
+  // changed and rooms always used the default 4 seats.
+  (function wireSeatsSeg() {
+    const seg = $('multi-seats-seg');
+    if (!seg || typeof seg.querySelectorAll !== 'function') return;
+    const btns = seg.querySelectorAll('button');
+    btns.forEach((b) => {
+      b.addEventListener('click', () => {
+        btns.forEach((x) => x.classList.remove('active'));
+        b.classList.add('active');
+        const v = parseInt(b.dataset.val || '4', 10);
+        $('multi-hint').textContent = '已选 ' + v + ' 人桌：房主创建房间后，' + (v - 1) + ' 个空位可被朋友加入，剩余由 AI 补上。';
+      });
+    });
+  })();
+
   $('btn-create-room').addEventListener('click', () => {
     M.roomSeats = parseInt(segVal('multi-seats-seg') || '4', 10);
     M.difficulty = segVal('difficulty-seg') || 'medium';

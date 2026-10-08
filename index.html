@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>德州扑克 · Texas Hold'em</title>
+  <title>Texas Hold'em Private</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <!-- ===== Start screen ===== -->
   <div id="start-screen" class="screen">
     <div class="start-card">
-      <h1>🂡 德州扑克 <span class="muted">Texas Hold'em</span></h1>
-      <p class="subtitle">单挑 AI · 可选难度</p>
+      <h1>🂡 Texas Hold'em <span class="muted">Private</span></h1>
+      <p class="subtitle">单机打 AI · 好友联机同桌 · 可选难度</p>
 
       <div class="field">
         <label>AI 难度</label>
@@ -53,12 +53,14 @@
           <button data-val="2">2 人桌</button>
           <button data-val="3">3 人桌</button>
           <button data-val="4" class="active">4 人桌</button>
+          <button data-val="5">5 人桌</button>
+          <button data-val="6">6 人桌</button>
         </div>
         <div class="join-input" id="join-input-wrap" style="display:none">
           <input id="join-code" placeholder="输入房间码，如 thp-AB3K" maxlength="24" />
           <button id="btn-join-go" class="primary">加入</button>
         </div>
-        <div class="hint" id="multi-hint">房主建房后把房间码发给朋友；空位自动由 AI 补上。⚠️ 联机需要用部署后的 https 网址打开（直接双击本地文件只能单机）。</div>
+        <div class="hint" id="multi-hint">房主建房后把房间码发给朋友（大小写不敏感，thp- 前缀可省略）；最多 6 人桌，空位自动由 AI 补上。⚠️ 联机需用部署后的 https 网址打开（双击本地文件只能单机）。</div>
       </div>
 
       <button id="start-btn" class="primary big">开始游戏 ▶</button>
@@ -68,7 +70,7 @@
   <!-- ===== Game screen ===== -->
   <div id="game-screen" class="screen hidden">
     <header class="topbar">
-      <div class="brand">🂡 德州扑克</div>
+      <div class="brand">🂡 Texas Hold'em Private</div>
       <div class="topinfo">
         <span id="difficulty-badge" class="badge">中等</span>
         <span id="hand-info" class="badge ghost">第 1 手</span>
