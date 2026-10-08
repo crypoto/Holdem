@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>德州扑克 · Texas Hold'em</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- ===== Start screen ===== -->
+  <div id="start-screen" class="screen">
+    <div class="start-card">
+      <h1>🂡 德州扑克 <span class="muted">Texas Hold'em</span></h1>
+      <p class="subtitle">单挑 AI · 可选难度</p>
+
+      <div class="field">
+        <label>AI 难度</label>
+        <div class="seg" id="difficulty-seg">
+          <button data-val="easy">😀 简单</button>
+          <button data-val="medium" class="active">🙂 中等</button>
+          <button data-val="hard">😎 困难</button>
+        </div>
+        <div class="hint" id="difficulty-hint">中等：会算底池赔率，打得比较聪明。</div>
+      </div>
+
+      <div class="field">
+        <label>对手数量</label>
+        <div class="seg" id="opponents-seg">
+          <button data-val="1">1</button>
+          <button data-val="2" class="active">2</button>
+          <button data-val="3">3</button>
+          <button data-val="4">4</button>
+          <button data-val="5">5</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>起始筹码 / 大盲</label>
+        <div class="seg" id="stack-seg">
+          <button data-val="500">500 / 10</button>
+          <button data-val="1000" class="active">1000 / 20</button>
+          <button data-val="2000">2000 / 40</button>
+        </div>
+      </div>
+
+      <div class="field" style="border-top:1px solid #232a33;padding-top:14px">
+        <label>🎮 联机模式 · 好友同桌对战（P2P 免服务器）</label>
+        <div class="seg">
+          <button id="btn-create-room">🛠 创建房间</button>
+          <button id="btn-join-room">🔑 加入房间</button>
+        </div>
+        <div class="seg" id="multi-seats-seg" style="margin-top:8px">
+          <button data-val="2">2 人桌</button>
+          <button data-val="3">3 人桌</button>
+          <button data-val="4" class="active">4 人桌</button>
+        </div>
+        <div class="join-input" id="join-input-wrap" style="display:none">
+          <input id="join-code" placeholder="输入房间码，如 thp-AB3K" maxlength="24" />
+          <button id="btn-join-go" class="primary">加入</button>
+        </div>
+        <div class="hint" id="multi-hint">房主建房后把房间码发给朋友；空位自动由 AI 补上。⚠️ 联机需要用部署后的 https 网址打开（直接双击本地文件只能单机）。</div>
+      </div>
+
+      <button id="start-btn" class="primary big">开始游戏 ▶</button>
+    </div>
+  </div>
+
+  <!-- ===== Game screen ===== -->
+  <div id="game-screen" class="screen hidden">
+    <header class="topbar">
+      <div class="brand">🂡 德州扑克</div>
+      <div class="topinfo">
+        <span id="difficulty-badge" class="badge">中等</span>
+        <span id="hand-info" class="badge ghost">第 1 手</span>
+      </div>
+      <button id="quit-btn" class="ghost-btn">退出</button>
+    </header>
+
+    <main class="table-wrap">
+      <div id="table">
+        <div id="community" class="community"></div>
+        <div id="pot-badge" class="pot-badge">底池 $0</div>
+        <div id="stage-badge" class="stage-badge">翻牌前</div>
+        <!-- seats injected by JS -->
+        <div id="seats"></div>
+      </div>
+    </main>
+
+    <section class="panel">
+      <div id="status" class="status">准备开始…</div>
+
+      <div id="equity-box" class="equity-box" style="display:none">
+        <div class="eq-label">你的胜率</div>
+        <div class="eq-bar"><div id="eq-fill" class="eq-fill"></div><span id="eq-pct" class="eq-pct">0%</span></div>
+        <div id="eq-advice" class="eq-advice"></div>
+      </div>
+
+      <div id="controls" class="controls">
+        <button id="btn-fold" class="act fold">弃牌</button>
+        <button id="btn-call" class="act call">看牌 / 跟注</button>
+
+        <div class="raise-group">
+          <input id="raise-slider" type="range" min="0" max="0" step="10" value="0" />
+          <div class="raise-row">
+            <button class="qbtn" data-mult="0.25">¼ 池</button>
+            <button class="qbtn" data-mult="0.5">½ 池</button>
+            <button class="qbtn" data-mult="0.75">¾ 池</button>
+            <button class="qbtn" data-mult="1">底池</button>
+            <button class="qbtn allin" data-mult="max">全下</button>
+          </div>
+          <button id="btn-raise" class="act raise">加注到 $0</button>
+        </div>
+
+        <button id="btn-next" class="act next hidden">下一手 ▶</button>
+      </div>
+
+      <div id="log" class="log"></div>
+    </section>
+  </div>
+
+  <!-- ===== Multiplayer lobby ===== -->
+  <div id="lobby" class="overlay hidden">
+    <div class="overlay-card">
+      <h2 id="lobby-title">房间</h2>
+      <p>房间码：<b id="lobby-code-val" style="letter-spacing:.08em;font-size:18px"></b></p>
+      <div id="lobby-players" style="text-align:left;margin:10px 0"></div>
+      <button id="lobby-start" class="primary hidden" style="width:100%">开始游戏 ▶</button>
+      <button id="lobby-leave" class="ghost-btn" style="margin-top:10px;width:100%">离开房间</button>
+    </div>
+  </div>
+
+  <div id="toasts" class="toasts"></div>
+
+  <!-- ===== Result overlay ===== -->
+  <div id="overlay" class="overlay hidden">
+    <div class="overlay-card">
+      <h2 id="overlay-title">游戏结束</h2>
+      <p id="overlay-text"></p>
+      <button id="overlay-btn" class="primary">再来一局</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+  <script src="ui.js"></script>
+  <script src="peerjs.min.js"></script>
+  <script src="multi.js"></script>
+</body>
+</html>
