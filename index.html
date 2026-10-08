@@ -148,5 +148,21 @@
   <script src="ui.js"></script>
   <script src="peerjs.min.js"></script>
   <script src="multi.js"></script>
+  <script>
+    // Cross-check the multiplayer module build. If multi.js is old (not uploaded
+    // yet, or served from the browser cache), say so loudly instead of letting
+    // the room controls silently do nothing.
+    (function () {
+      var b = document.getElementById('build-tag');
+      if (!b) return;
+      var m = window.TH_MULTI_BUILD;
+      if (m === 'v3') {
+        b.textContent = '构建 v3 · 联机模块 v3 · 支持 2–6 人桌';
+      } else {
+        b.textContent = '⚠️ 联机模块是旧版（' + (m || '未加载') + '）：请按 Ctrl+Shift+R 强刷，或用无痕窗口打开';
+        b.style.color = '#d23b3b';
+      }
+    })();
+  </script>
 </body>
 </html>

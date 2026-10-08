@@ -11,6 +11,9 @@
 (function () {
   'use strict';
   if (typeof window === 'undefined') return;
+  // Build stamp — index.html cross-checks this so a stale/cached multi.js is
+  // visible instead of silently breaking the room controls and ICE config.
+  window.TH_MULTI_BUILD = 'v3';
   const { Game, rankLabel, suitSymbol } = window.Poker;
 
   // ---- DOM ----
